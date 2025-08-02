@@ -1,8 +1,7 @@
 {
-  "platforms": ["ios", "tvos", "android", "web"],
+  "platforms": ["ios", "android"],
   "ios": {
-    "modules": ["ExpoNativeWechatModule"],
-    "appDelegateSubscribers": ["ExpoWechatDelegate"]
+    "modules": ["ExpoNativeWechatModule"]
   },
   "android": {
     "modules": ["expo.modules.nativewechat.ExpoNativeWechatModule"]
