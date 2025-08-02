@@ -1,0 +1,45 @@
+{
+  "name": "expo-wechat-lib",
+  "version": "0.3.1",
+  "description": "A Expo Module for supporting Wechat APIs on Android and iOS",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "expo-module build",
+    "clean": "expo-module clean",
+    "lint": "expo-module lint",
+    "test": "expo-module test",
+    "prepare": "expo-module prepare",
+    "prepublishOnly": "expo-module prepublishOnly",
+    "expo-module": "expo-module",
+    "open:ios": "open -a \"Xcode\" example/ios",
+    "open:android": "open -a \"Android Studio\" example/android"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "expo-native-wechat",
+    "ExpoNativeWechat"
+  ],
+  "repository": "https://github.com/evansuner/expo-wechat-lib",
+  "bugs": {
+    "url": "https://github.com/evansuner/expo-wechat-lib/issues"
+  },
+  "author": "Evan <zhidong.s@outlook.com> (https://github.com/evansuner)",
+  "license": "MIT",
+  "homepage": "https://github.com/evansuner/expo-wechat-lib#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "expo-module-scripts": "^4.1.9",
+    "expo-modules-core": "^2.5.0",
+    "@types/react": "~19.0.0",
+    "expo": "~53.0.0",
+    "react-native": "0.79.1",
+    "prettier": "^3.3.3"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}
