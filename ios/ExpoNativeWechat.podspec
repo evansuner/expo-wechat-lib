@@ -21,7 +21,15 @@ Pod::Spec.new do |s|
   # Swift/Objective-C compatibility
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'SWIFT_COMPILATION_MODE' => 'wholemodule'
+    'SWIFT_COMPILATION_MODE' => 'wholemodule',
+    'VALID_ARCHS' => 'arm64 x86_64',
+    'ARCHS' => '$(ARCHS_STANDARD)',
+    'ONLY_ACTIVE_ARCH' => 'NO'
+  }
+
+  # User target configuration
+  s.user_target_xcconfig = {
+    'VALID_ARCHS' => 'arm64 x86_64'
   }
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
