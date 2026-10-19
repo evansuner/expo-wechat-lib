@@ -1,9 +1,20 @@
 {
-  "platforms": ["ios", "android"],
-  "ios": {
-    "modules": ["ExpoNativeWechatModule"]
-  },
+  "platforms": [
+    "ios",
+    "android"
+  ],
   "android": {
-    "modules": ["expo.modules.nativewechat.ExpoNativeWechatModule"]
+    "modules": [
+      "expo.modules.nativewechat.ExpoNativeWechatModule"
+    ]
+  },
+  "apple": {
+    "modules": [
+      "ExpoNativeWechatModule"
+    ],
+    "appDelegateSubscribers": [
+      "ExpoWechatDelegate"
+    ],
+    "podspecPath": "ios/ExpoNativeWechat.podspec"
   }
 }

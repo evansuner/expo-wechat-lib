@@ -7,4 +7,4 @@
 
 #import "ExpoNativeWechatLogger.h"
 #import "ResponseHandler.h"
-#import "WXApi.h"
+#import <WechatOpenSDK/WXApi.h>

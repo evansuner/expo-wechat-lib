@@ -1,13 +1,3 @@
-import { Recordable } from "./typing";
+let sequence = 0;
 
-export const getRandomStr = () => (Math.random() + 1).toString(36).substring(7);
-
-export const executeNativeFunction = (fn: Function) => {
-  return (args: Recordable = {}) => {
-    const id = getRandomStr();
-
-    fn({ ...args, id });
-
-    return id;
-  };
-};
+export const getRandomStr = () => `${Date.now().toString(36)}-${++sequence}`;

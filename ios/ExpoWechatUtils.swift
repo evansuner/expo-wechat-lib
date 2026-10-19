@@ -18,11 +18,14 @@ struct ExpoWechatUtils {
         let session = URLSession(configuration: configuration)
 
         let task = session.dataTask(with: request) { data, response, error in
-            if let error = error {
-                onError(error)
-            } else {
-                onSuccess(data)
+            DispatchQueue.main.async {
+                if let error = error {
+                    onError(error)
+                } else {
+                    onSuccess(data)
+                }
             }
+            session.finishTasksAndInvalidate()
         }
 
         task.resume()
@@ -40,8 +43,8 @@ struct ExpoWechatUtils {
             return data
         }
 
-        while initialData.count > limit && compression > 0 {
-            compression -= 0.1
+        while (compressedData?.count ?? initialData.count) > limit && compression > 0 {
+            compression = max(0, compression - 0.1)
             if let newData = image.jpegData(compressionQuality: compression) {
                 compressedData = newData
             } else {
@@ -52,17 +55,8 @@ struct ExpoWechatUtils {
         return compressedData
     }
 
-    static func convertToSwiftDictionary(data: NSDictionary) -> [String: Any?] {
-        var dict: [String: Any?] = [:]
-
-        for key in data.allKeys {
-            if let keyString = key as? String {
-                let value = data[key]
-                dict[keyString] = value
-            }
-        }
-
-        return dict
+    static func convertToSwiftDictionary(data: NSDictionary) -> [String: Any] {
+        return data as? [String: Any] ?? [:]
     }
 
     // 新增：处理图片下载和压缩的通用方法

@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import com.tencent.mm.opensdk.modelbase.BaseReq
 import com.tencent.mm.opensdk.modelbase.BaseResp
@@ -35,15 +36,22 @@ import java.io.IOException
 
 class ExpoNativeWechatModule : Module(), IWXAPIEventHandler {
     private var appid: String? = null
-    private var registered = false
+    private var callbackReceiver: BroadcastReceiver? = null
     private var wxApi: IWXAPI? = null
-    private val REDIRECT_INTENT_ACTION = "com.hector.nativewechat.ACTION_REDIRECT_INTENT"
+    private val REDIRECT_INTENT_ACTION = "expo.modules.nativewechat.ACTION_REDIRECT_INTENT"
     private val reactContext
         get() = requireNotNull(appContext.reactContext)
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun definition() = ModuleDefinition {
         Name("ExpoNativeWechat")
+
+        OnDestroy {
+            callbackReceiver?.let { appContext.reactContext?.unregisterReceiver(it) }
+            callbackReceiver = null
+            wxApi?.detach()
+            wxApi = null
+        }
 
         Function("getConstants") {
             return@Function bundleOf(
@@ -60,17 +68,25 @@ class ExpoNativeWechatModule : Module(), IWXAPIEventHandler {
 
         Function("registerApp") { params: RegisterAppParams ->
             appid = params.appid
-            registered = true
 
             wxApi = WXAPIFactory.createWXAPI(reactContext, appid, true);
 
             val success = wxApi?.registerApp(appid)
 
-            appContext.reactContext?.registerReceiver(object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) {
-                    handleIntent(intent.extras!!["intent"] as Intent?)
+            if (callbackReceiver == null) {
+                val receiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context, intent: Intent) {
+                        @Suppress("DEPRECATION")
+                        val callback = intent.getParcelableExtra<Intent>("intent")
+                        handleIntent(callback)
+                    }
                 }
-            }, IntentFilter(REDIRECT_INTENT_ACTION), Context.RECEIVER_EXPORTED);
+                ContextCompat.registerReceiver(
+                    reactContext, receiver, IntentFilter(REDIRECT_INTENT_ACTION),
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+                callbackReceiver = receiver
+            }
 
             this@ExpoNativeWechatModule.sendEvent(
                 "ResponseData", bundleOf(
@@ -81,7 +97,7 @@ class ExpoNativeWechatModule : Module(), IWXAPIEventHandler {
         }
 
         Function("isWechatInstalled") { params: BasicRequestParams ->
-            val installed = wxApi?.isWXAppInstalled()
+            val installed = (wxApi ?: WXAPIFactory.createWXAPI(reactContext, null, true)).isWXAppInstalled
 
             this@ExpoNativeWechatModule.sendEvent(
                 "ResponseData", bundleOf(
@@ -95,7 +111,7 @@ class ExpoNativeWechatModule : Module(), IWXAPIEventHandler {
             var req = SendAuth.Req()
 
             req.scope = params.scope
-            req.state = req.state
+            req.state = params.state
 
             sendEvent(
                 "ResponseData", bundleOf(
@@ -294,7 +310,7 @@ class ExpoNativeWechatModule : Module(), IWXAPIEventHandler {
             miniProgramObj.miniprogramType = miniProgramType
             miniProgramObj.userName = userName
             miniProgramObj.path = path
-            miniProgramObj.withShareTicket = withShareTicket!!
+            miniProgramObj.withShareTicket = withShareTicket ?: false
 
             val msg = WXMediaMessage(miniProgramObj)
             msg.title = title
@@ -431,7 +447,7 @@ class ExpoNativeWechatModule : Module(), IWXAPIEventHandler {
     }
 
     fun handleIntent(intent: Intent?) {
-        wxApi!!.handleIntent(intent, this)
+        if (intent != null) wxApi?.handleIntent(intent, this)
     }
 
     override fun onReq(req: BaseReq?) {}

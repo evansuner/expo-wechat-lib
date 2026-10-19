@@ -9,8 +9,8 @@
     if ([baseResp isKindOfClass:[SendAuthResp class]]) {
       SendAuthResp *resp = (SendAuthResp *)baseResp;
 
-      [argument setObject:resp.code forKey:@"code"];
-      [argument setObject:resp.state forKey:@"state"];
+      [argument setObject:(resp.code ?: @"") forKey:@"code"];
+      [argument setObject:(resp.state ?: @"") forKey:@"state"];
 
       if (resp.lang)
         [argument setObject:resp.lang forKey:@"lang"];
@@ -22,7 +22,7 @@
     if ([baseResp isKindOfClass:[WXLaunchMiniProgramResp class]]) {
       WXLaunchMiniProgramResp *resp = (WXLaunchMiniProgramResp *)baseResp;
 
-      [argument setObject:resp.extMsg forKey:@"extMsg"];
+      [argument setObject:(resp.extMsg ?: @"") forKey:@"extMsg"];
     }
   }
 

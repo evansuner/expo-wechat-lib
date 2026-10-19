@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "WechatExample",
+    "slug": "wechat-example",
+    "ios": { "bundleIdentifier": "com.example.wechat" },
+    "android": { "package": "com.example.wechat" },
+    "plugins": [["expo-wechat-lib", {
+      "appid": "wx1234567890abcdef",
+      "universalLink": "https://example.com/wechat/"
+    }]]
+  }
+}

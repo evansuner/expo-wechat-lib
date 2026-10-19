@@ -1,26 +1,22 @@
 import ExpoModulesCore
+import WechatOpenSDK
 
 public class ExpoNativeWechatModule: Module {
     private var appid: String = ""
 
     private var logger = ExpoNativeWechatLogger(prefix: "[Native Wechat]")
 
+    private var responseObserver: NSObjectProtocol?
+
     private func registerResponder() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleResponse),
-            name: Notification.Name("ResponseData"),
-            object: nil
-        )
-    }
-
-    @objc func handleResponse(_ notification: Notification) {
-        guard let data = notification.userInfo as? [String: Any] else {
-            logger.onLog("Invalid notification data format", logLevel: .normal)
-            return
+        responseObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name("ResponseData"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let data = notification.userInfo as? [String: Any] else { return }
+            self?.emit(event: "ResponseFromNotification", payload: data)
         }
-
-        sendEvent("ResponseFromNotification", data)
     }
 
     public func definition() -> ModuleDefinition {
@@ -30,8 +26,14 @@ public class ExpoNativeWechatModule: Module {
             registerResponder()
         }
 
-        Events("ResponseData")
-        Events("ResponseFromNotification")
+        OnDestroy {
+            if let observer = self.responseObserver {
+                NotificationCenter.default.removeObserver(observer)
+                self.responseObserver = nil
+            }
+        }
+
+        Events("ResponseData", "ResponseFromNotification")
 
         Function("getConstants") {
             return [
@@ -44,7 +46,7 @@ public class ExpoNativeWechatModule: Module {
             ]
         }
 
-        Function("registerApp") { (params: RegisterAppParams) -> Void in
+        AsyncFunction("registerApp") { (params: RegisterAppParams) -> Void in
             if params.log {
                 if let logPrefix = params.logPrefix {
                     logger.logPrefix = logPrefix
@@ -57,16 +59,16 @@ public class ExpoNativeWechatModule: Module {
 
             let success = WXApi.registerApp(appid, universalLink: params.universalLink)
 
-            sendEvent("ResponseData", ["success": success, "id": params.id])
-        }
+            emit(event: "ResponseData", payload: ["success": success, "id": params.id])
+        }.runOnQueue(.main)
 
-        Function("checkUniversalLinkReady") { (params: BasicRequestParams) -> Void in
+        AsyncFunction("checkUniversalLinkReady") { (params: BasicRequestParams) -> Void in
             WXApi.checkUniversalLinkReady { step, result in
                 if result.success {
                     if step == WXULCheckStep.final {
-                        self.sendEvent(
-                            "ResponseData",
-                            [
+                        self.emit(
+                            event: "ResponseData",
+                            payload: [
                                 "id": params.id,
                                 "success": true,
                                 "suggestion": "",
@@ -74,25 +76,25 @@ public class ExpoNativeWechatModule: Module {
                             ])
                     }
                 } else {
-                    self.sendEvent(
-                        "ResponseData",
-                        [
+                    self.emit(
+                        event: "ResponseData",
+                        payload: [
                             "id": params.id,
-                            "success": true,
+                            "success": false,
                             "suggestion": result.suggestion,
                             "errorInfo": result.errorInfo,
                         ])
                 }
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("isWechatInstalled") { (params: BasicRequestParams) -> Void in
+        AsyncFunction("isWechatInstalled") { (params: BasicRequestParams) -> Void in
             let installed = WXApi.isWXAppInstalled()
 
-            sendEvent("ResponseData", ["success": installed, "id": params.id])
-        }
+            emit(event: "ResponseData", payload: ["success": installed, "id": params.id])
+        }.runOnQueue(.main)
 
-        Function("sendAuthRequest") { (params: SendAuthRequestParams) -> Void in
+        AsyncFunction("sendAuthRequest") { (params: SendAuthRequestParams) -> Void in
             let req = SendAuthReq()
 
             if let scope = params.scope {
@@ -102,11 +104,11 @@ public class ExpoNativeWechatModule: Module {
             req.state = params.state
 
             WXApi.send(req) { success in
-                self.sendEvent("ResponseData", ["success": success, "id": params.id])
+                self.emit(event: "ResponseData", payload: ["success": success, "id": params.id])
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("shareText") { (params: ShareTextParams) -> Void in
+        AsyncFunction("shareText") { (params: ShareTextParams) -> Void in
             let req = SendMessageToWXReq()
 
             req.bText = true
@@ -114,23 +116,23 @@ public class ExpoNativeWechatModule: Module {
             req.scene = Int32(params.scene)
 
             WXApi.send(req) { success in
-                self.sendEvent("ResponseData", ["success": success, "id": params.id])
+                self.emit(event: "ResponseData", payload: ["success": success, "id": params.id])
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("shareImage") { (params: ShareImageParams) -> Void in
+        AsyncFunction("shareImage") { (params: ShareImageParams) -> Void in
             guard let url = URL(string: params.src) else {
-                self.sendEvent(
-                    "ResponseData",
-                    ["success": false, "id": params.id, "message": "Invalid image URL"])
+                self.emit(
+                    event: "ResponseData",
+                    payload: ["success": false, "id": params.id, "message": "Invalid image URL"])
                 return
             }
 
             ExpoWechatUtils.downloadFile(url: url) { data in
                 guard let imageData = data, !imageData.isEmpty else {
-                    self.sendEvent(
-                        "ResponseData",
-                        ["success": false, "id": params.id, "message": "Image data is empty"])
+                    self.emit(
+                        event: "ResponseData",
+                        payload: ["success": false, "id": params.id, "message": "Image data is empty"])
                     return
                 }
 
@@ -138,7 +140,7 @@ public class ExpoNativeWechatModule: Module {
                 imageObject.imageData = imageData
 
                 let message = WXMediaMessage()
-                message.thumbData = imageData
+                message.thumbData = ExpoWechatUtils.compressImage(data: imageData, limit: 32000)
                 message.mediaObject = imageObject
 
                 let req = SendMessageToWXReq()
@@ -147,19 +149,19 @@ public class ExpoNativeWechatModule: Module {
                 req.message = message
 
                 WXApi.send(req) { success in
-                    self.sendEvent("ResponseData", ["success": success, "id": params.id])
+                    self.emit(event: "ResponseData", payload: ["success": success, "id": params.id])
                 }
             } onError: { error in
-                self.sendEvent(
-                    "ResponseData",
-                    [
+                self.emit(
+                    event: "ResponseData",
+                    payload: [
                         "success": false, "id": params.id,
                         "message": error?.localizedDescription ?? "Unknown error",
                     ])
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("shareVideo") { (params: ShareVideoParams) -> Void in
+        AsyncFunction("shareVideo") { (params: ShareVideoParams) -> Void in
             let videoObj = WXVideoObject()
 
             videoObj.videoUrl = params.videoUrl
@@ -173,7 +175,9 @@ public class ExpoNativeWechatModule: Module {
 
             let onCoverDownloaded: ((Data?) -> Void) = { data in
                 if let imgData = data {
-                    message.setThumbImage(UIImage(data: imgData)!)
+                    if let image = UIImage(data: imgData) {
+                        message.setThumbImage(image)
+                    }
                 }
 
                 let req = SendMessageToWXReq()
@@ -182,15 +186,15 @@ public class ExpoNativeWechatModule: Module {
                 req.scene = Int32(params.scene)
 
                 WXApi.send(req) { success in
-                    self.sendEvent("ResponseData", ["success": success, "id": params.id])
+                    self.emit(event: "ResponseData", payload: ["success": success, "id": params.id])
                 }
             }
 
             if params.coverUrl != nil {
                 guard let url = URL(string: params.coverUrl!) else {
-                    self.sendEvent(
-                        "ResponseData",
-                        ["id": params.id, "success": false, "message": "Invalid cover URL"])
+                    self.emit(
+                        event: "ResponseData",
+                        payload: ["id": params.id, "success": false, "message": "Invalid cover URL"])
                     return
                 }
 
@@ -203,17 +207,17 @@ public class ExpoNativeWechatModule: Module {
                         onCoverDownloaded(nil)
                     }
                 } onError: { error in
-                    self.sendEvent(
-                        "ResponseData",
-                        ["id": params.id, "success": false, "message": error?.localizedDescription])
+                    self.emit(
+                        event: "ResponseData",
+                        payload: ["id": params.id, "success": false, "message": error?.localizedDescription ?? "Download failed"])
                 }
 
             } else {
                 onCoverDownloaded(nil)
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("shareWebpage") { (params: ShareWebpageParams) -> Void in
+        AsyncFunction("shareWebpage") { (params: ShareWebpageParams) -> Void in
             let webpackObj = WXWebpageObject()
 
             webpackObj.webpageUrl = params.webpageUrl
@@ -226,7 +230,9 @@ public class ExpoNativeWechatModule: Module {
 
             let onCoverDownloaded: ((Data?) -> Void) = { data in
                 if let imgData = data {
-                    message.setThumbImage(UIImage(data: imgData)!)
+                    if let image = UIImage(data: imgData) {
+                        message.setThumbImage(image)
+                    }
                 }
 
                 let req = SendMessageToWXReq()
@@ -235,15 +241,15 @@ public class ExpoNativeWechatModule: Module {
                 req.scene = Int32(params.scene)
 
                 WXApi.send(req) { success in
-                    self.sendEvent("ResponseData", ["id": params.id, "success": success])
+                    self.emit(event: "ResponseData", payload: ["id": params.id, "success": success])
                 }
             }
 
             if params.coverUrl != nil {
                 guard let url = URL(string: params.coverUrl!) else {
-                    self.sendEvent(
-                        "ResponseData",
-                        ["id": params.id, "success": false, "message": "Invalid cover URL"])
+                    self.emit(
+                        event: "ResponseData",
+                        payload: ["id": params.id, "success": false, "message": "Invalid cover URL"])
                     return
                 }
 
@@ -256,24 +262,29 @@ public class ExpoNativeWechatModule: Module {
                         onCoverDownloaded(nil)
                     }
                 } onError: { error in
-                    self.sendEvent(
-                        "ResponseData",
-                        ["id": params.id, "success": false, "message": error?.localizedDescription])
+                    self.emit(
+                        event: "ResponseData",
+                        payload: ["id": params.id, "success": false, "message": error?.localizedDescription ?? "Download failed"])
                 }
 
             } else {
                 onCoverDownloaded(nil)
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("shareMiniProgram") { (params: ShareMiniProgramParams) -> Void in
+        AsyncFunction("shareMiniProgram") { (params: ShareMiniProgramParams) -> Void in
             let object = WXMiniProgramObject()
 
             object.userName = params.userName
             object.webpageUrl = params.webpageUrl
             object.path = params.path
             object.withShareTicket = params.withShareTicket ?? false
-            object.miniProgramType = WXMiniProgramType(rawValue: UInt(params.miniProgramType))!
+            guard (0...2).contains(params.miniProgramType),
+                let miniProgramType = WXMiniProgramType(rawValue: UInt(params.miniProgramType)) else {
+                self.emit(event: "ResponseData", payload: ["id": params.id, "success": false, "message": "Invalid miniProgramType"])
+                return
+            }
+            object.miniProgramType = miniProgramType
 
             let message = WXMediaMessage()
 
@@ -283,7 +294,9 @@ public class ExpoNativeWechatModule: Module {
 
             let onCoverDownloaded: ((Data?) -> Void) = { data in
                 if let imgData = data {
-                    message.setThumbImage(UIImage(data: imgData)!)
+                    if let image = UIImage(data: imgData) {
+                        message.setThumbImage(image)
+                    }
                 }
 
                 let req = SendMessageToWXReq()
@@ -292,15 +305,15 @@ public class ExpoNativeWechatModule: Module {
                 req.scene = 0  // WXSceneSession
 
                 WXApi.send(req) { success in
-                    self.sendEvent("ResponseData", ["id": params.id, "success": success])
+                    self.emit(event: "ResponseData", payload: ["id": params.id, "success": success])
                 }
             }
 
             if params.coverUrl != nil {
                 guard let url = URL(string: params.coverUrl!) else {
-                    self.sendEvent(
-                        "ResponseData",
-                        ["id": params.id, "success": false, "message": "Invalid cover URL"])
+                    self.emit(
+                        event: "ResponseData",
+                        payload: ["id": params.id, "success": false, "message": "Invalid cover URL"])
                     return
                 }
 
@@ -313,17 +326,17 @@ public class ExpoNativeWechatModule: Module {
                         onCoverDownloaded(nil)
                     }
                 } onError: { error in
-                    self.sendEvent(
-                        "ResponseData",
-                        ["id": params.id, "success": false, "message": error?.localizedDescription])
+                    self.emit(
+                        event: "ResponseData",
+                        payload: ["id": params.id, "success": false, "message": error?.localizedDescription ?? "Download failed"])
                 }
 
             } else {
                 onCoverDownloaded(nil)
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("requestPayment") { (params: RequestPaymentParams) -> Void in
+        AsyncFunction("requestPayment") { (params: RequestPaymentParams) -> Void in
             let request = PayReq()
 
             request.partnerId = params.partnerId
@@ -335,55 +348,60 @@ public class ExpoNativeWechatModule: Module {
             if let timeStamp = UInt32(params.timeStamp) {
                 request.timeStamp = timeStamp
             } else {
-                self.sendEvent(
-                    "ResponseData",
-                    ["id": params.id, "success": false, "message": "Invalid timestamp format"])
+                self.emit(
+                    event: "ResponseData",
+                    payload: ["id": params.id, "success": false, "message": "Invalid timestamp format"])
                 return
             }
 
             request.sign = params.sign
 
             WXApi.send(request) { success in
-                self.sendEvent("ResponseData", ["id": params.id, "success": success])
+                self.emit(event: "ResponseData", payload: ["id": params.id, "success": success])
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("requestSubscribeMessage") { (params: RequestSubscribeMsgParams) -> Void in
-            var req = WXSubscribeMsgReq()
+        AsyncFunction("requestSubscribeMessage") { (params: RequestSubscribeMsgParams) -> Void in
+            let req = WXSubscribeMsgReq()
 
             req.scene = UInt32(params.scene)
             req.templateId = params.templateId
             req.reserved = params.reserved
 
             WXApi.send(req) { success in
-                self.sendEvent("ResponseData", ["id": params.id, "success": success])
+                self.emit(event: "ResponseData", payload: ["id": params.id, "success": success])
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("launchMiniProgram") { (params: LaunchMiniprogramParams) -> Void in
-            var req = WXLaunchMiniProgramReq()
+        AsyncFunction("launchMiniProgram") { (params: LaunchMiniprogramParams) -> Void in
+            let req = WXLaunchMiniProgramReq()
 
             req.userName = params.userName
             req.path = params.path
-            req.miniProgramType = WXMiniProgramType(rawValue: UInt(UInt32(params.miniProgramType)))!
+            guard (0...2).contains(params.miniProgramType),
+                let miniProgramType = WXMiniProgramType(rawValue: UInt(params.miniProgramType)) else {
+                self.emit(event: "ResponseData", payload: ["id": params.id, "success": false, "message": "Invalid miniProgramType"])
+                return
+            }
+            req.miniProgramType = miniProgramType
 
             WXApi.send(req) { success in
-                self.sendEvent("ResponseData", ["id": params.id, "success": success])
+                self.emit(event: "ResponseData", payload: ["id": params.id, "success": success])
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("openCustomerService") { (params: OpenCustomerServiceParams) -> Void in
-            var req = WXOpenCustomerServiceReq()
+        AsyncFunction("openCustomerService") { (params: OpenCustomerServiceParams) -> Void in
+            let req = WXOpenCustomerServiceReq()
 
             req.corpid = params.corpid
             req.url = params.url
 
             WXApi.send(req) { success in
-                self.sendEvent("ResponseData", ["id": params.id, "success": success])
+                self.emit(event: "ResponseData", payload: ["id": params.id, "success": success])
             }
-        }
+        }.runOnQueue(.main)
 
-        Function("appPureSignContract") { (params: AppPureSignContractParams) -> Void in
+        AsyncFunction("appPureSignContract") { (params: AppPureSignContractParams) -> Void in
             let req = WXOpenBusinessWebViewReq()
 
             req.businessType = 12  // 固定值
@@ -393,8 +411,8 @@ public class ExpoNativeWechatModule: Module {
             req.queryInfoDic = queryInfoDic
 
             WXApi.send(req) { success in
-                self.sendEvent("ResponseData", ["id": params.id, "success": success])
+                self.emit(event: "ResponseData", payload: ["id": params.id, "success": success])
             }
-        }
+        }.runOnQueue(.main)
     }
 }

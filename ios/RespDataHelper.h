@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "WXApi.h"
+#import <WechatOpenSDK/WXApi.h>
 
 @interface RespDataHelper: NSObject
 

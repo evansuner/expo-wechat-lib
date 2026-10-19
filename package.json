@@ -8,7 +8,7 @@
     "build": "expo-module build",
     "clean": "expo-module clean",
     "lint": "expo-module lint",
-    "test": "expo-module test",
+    "test": "node --test tests/*.test.js",
     "prepare": "expo-module prepare",
     "prepublishOnly": "expo-module prepublishOnly",
     "expo-module": "expo-module",
@@ -30,16 +30,33 @@
   "homepage": "https://github.com/evansuner/expo-wechat-lib#readme",
   "dependencies": {},
   "devDependencies": {
-    "expo-module-scripts": "^4.1.9",
-    "expo-modules-core": "^2.5.0",
-    "@types/react": "~19.0.0",
-    "expo": "~53.0.0",
-    "react-native": "0.79.1",
-    "prettier": "^3.3.3"
+    "expo-module-scripts": "^56.0.3",
+    "expo-modules-core": "~58.0.22",
+    "@types/react": "~19.3.0",
+    "expo": "~58.0.14",
+    "react": "19.3.0",
+    "react-native": "0.88.0",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
   },
   "peerDependencies": {
-    "expo": "*",
-    "react": "*",
-    "react-native": "*"
-  }
+    "expo": ">=58.0.0 <59.0.0",
+    "react": ">=19.3.0 <20.0.0",
+    "react-native": ">=0.88.0 <0.89.0"
+  },
+  "engines": {
+    "node": "^22.13.0 || ^24.3.0 || ^26.0.0 || >=27.0.0"
+  },
+  "files": [
+    "build",
+    "src",
+    "ios/*.h",
+    "ios/*.m",
+    "ios/*.swift",
+    "ios/*.podspec",
+    "android/build.gradle",
+    "android/src/main",
+    "app.plugin.js",
+    "expo-module.config.json"
+  ]
 }

@@ -6,6 +6,7 @@
 //
 
 import ExpoModulesCore
+import WechatOpenSDK
 
 public class ExpoWechatDelegate: ExpoAppDelegateSubscriber, WXApiDelegate {
     public func application(

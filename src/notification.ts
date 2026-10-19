@@ -36,7 +36,7 @@ class Notification {
   dispatch(name: string, ...args: any[]) {
     const queue = this.getQueue(name);
 
-    queue.forEach(fn => fn(...args));
+    queue.forEach((fn) => fn(...args));
 
     this.clear(name);
   }

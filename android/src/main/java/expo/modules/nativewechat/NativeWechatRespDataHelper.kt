@@ -9,16 +9,20 @@ import com.tencent.mm.opensdk.modelmsg.SendAuth
 
 
 object NativeWechatRespDataHelper {
-    private var type: String = ""
 
     fun downcastResp(baseResp: BaseResp?): Bundle {
         if (baseResp == null)
             return bundleOf()
 
+        val type = when (baseResp.type) {
+            ConstantsAPI.COMMAND_SENDAUTH -> "SendAuthResp"
+            ConstantsAPI.COMMAND_LAUNCH_WX_MINIPROGRAM -> "WXLaunchMiniProgramResp"
+            ConstantsAPI.COMMAND_PAY_BY_WX -> "PayResp"
+            else -> baseResp.javaClass.name
+        }
         val argument = bundleOf()
 
         if (baseResp.type == ConstantsAPI.COMMAND_SENDAUTH) {
-            type = "SendAuthResp"
             val resp = baseResp as SendAuth.Resp
 
             argument.putString("code", resp.code)
@@ -28,22 +32,18 @@ object NativeWechatRespDataHelper {
         }
 
         if (baseResp.type == ConstantsAPI.COMMAND_LAUNCH_WX_MINIPROGRAM) {
-            type = "WXLaunchMiniProgramResp"
             val resp = baseResp as WXLaunchMiniProgram.Resp
 
             argument.putString("extMsg", resp.extMsg)
         }
 
-        if (baseResp.type == ConstantsAPI.COMMAND_PAY_BY_WX) {
-            type = "PayResp"
-        }
-
-        return wrapResponse(baseResp, argument);
+        return wrapResponse(baseResp, argument, type)
     }
 
     private fun wrapResponse(
         baseResp: BaseResp,
-        data: Bundle
+        data: Bundle,
+        type: String
     ): Bundle {
         return bundleOf(
             "type" to type,
