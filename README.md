@@ -41,7 +41,7 @@ npx expo-doctor
 npm install expo-wechat-lib
 ```
 
-如果使用当前仓库尚未发布的修改，先在库根目录执行 `bun install && bun run build && npm pack`，再在宿主安装生成的 `.tgz` 文件。直接安装注册表里的旧版 `0.3.3` 不会包含本地修改。
+如果使用当前仓库尚未发布的修改，先在库根目录执行 `bun install && bun run build && npm pack`，再在宿主安装生成的 `.tgz` 文件。直接安装注册表里的旧版 `1.0.1` 不会包含本地修改。
 
 不要额外安装另一份 `expo-modules-core` 作为宿主运行时依赖；使用 Expo 对应版本，避免重复原生模块。
 
